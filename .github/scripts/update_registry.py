@@ -1,28 +1,53 @@
 import sqlite3
 import json
 import sys
+import os
 
 def main():
-    # Payload sent from the shard
-    payload = json.loads(sys.argv[1])
-    part_name = payload.get('part_name')
-    repo_url = payload.get('repo')
-    cdn_url = payload.get('url')
+    if len(sys.argv) < 2:
+        print("Error: No payload provided")
+        return
 
+    # 1. Catch the "Rich" Payload from the Shard
+    payload = json.loads(sys.argv[1])
+    
+    # Mapping the payload from the Shard's extractor.py
+    name = payload.get('name')
+    description = payload.get('desc', '')
+    tags = json.dumps(payload.get('tags', [])) # Store tags as a JSON string
+    base_url = payload.get('base_url')
+    schema_ver = payload.get('schema_version', '1.0')
+
+    # 2. Connect to the Brain (SQLite)
+    os.makedirs('data', exist_ok=True)
     conn = sqlite3.connect('data/registry.db')
     cursor = conn.cursor()
     
-    # Create table if it doesn't exist
-    cursor.execute('''CREATE TABLE IF NOT EXISTS registry 
-                      (part_name TEXT PRIMARY KEY, repo TEXT, url TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    # 3. Create a Professional, Semantic-Ready Schema
+    cursor.execute('''CREATE TABLE IF NOT EXISTS registry (
+                        name TEXT PRIMARY KEY, 
+                        description TEXT, 
+                        tags TEXT, 
+                        base_url TEXT, 
+                        schema_version TEXT,
+                        vector_embedding BLOB,  -- Reserved for Semantic Search
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )''')
 
-    # Insert or Update
-    cursor.execute('''INSERT INTO registry (part_name, repo, url) VALUES (?, ?, ?)
-                      ON CONFLICT(part_name) DO UPDATE SET repo=excluded.repo, url=excluded.url, updated_at=CURRENT_TIMESTAMP''', 
-                   (part_name, repo_url, cdn_url))
+    # 4. Upsert (Insert or Update if exists)
+    cursor.execute('''INSERT INTO registry (name, description, tags, base_url, schema_version) 
+                      VALUES (?, ?, ?, ?, ?)
+                      ON CONFLICT(name) DO UPDATE SET 
+                        description=excluded.description, 
+                        tags=excluded.tags, 
+                        base_url=excluded.base_url, 
+                        schema_version=excluded.schema_version,
+                        updated_at=CURRENT_TIMESTAMP''', 
+                   (name, description, tags, base_url, schema_ver))
     
     conn.commit()
     conn.close()
+    print(f"Successfully indexed: {name}")
 
 if __name__ == "__main__":
     main()
