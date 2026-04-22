@@ -1,0 +1,27 @@
+name: Global Indexing Engine
+on:
+  repository_dispatch:
+    types: [shard_update] # This MUST match the event_type in your shard script
+
+jobs:
+  update-index:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Master Index
+        uses: actions/checkout@v4
+
+      - name: Update SQLite Database
+        run: |
+          # Pass the entire JSON payload from the shard into the Python script
+          python3 .github/scripts/update_registry.py '${{ toJson(github.event.client_payload) }}'
+
+      - name: Auto-Commit Changes
+        run: |
+          git config user.name "Pratibim-System"
+          git config user.email "bot@pratibim-lab.com"
+          git add data/registry.db
+          # Only commit if there are changes (avoids failing if the file didn't change)
+          git commit -m "sync: updated index for ${{ github.event.client_payload.name }}" || echo "No changes to commit"
+          git push
