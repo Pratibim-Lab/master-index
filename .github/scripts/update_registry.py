@@ -4,50 +4,46 @@ import sys
 import os
 
 def main():
-    if len(sys.argv) < 2:
-        print("Error: No payload provided")
-        return
-
-    # 1. Catch the "Rich" Payload from the Shard
+    if len(sys.argv) < 2: return
     payload = json.loads(sys.argv[1])
     
-    # Mapping the payload from the Shard's extractor.py
+    # 1. Extract the new fields from your "Rich" Manifest
     name = payload.get('name')
     description = payload.get('desc', '')
-    tags = json.dumps(payload.get('tags', [])) # Store tags as a JSON string
+    tags = json.dumps(payload.get('tags', []))
+    footprint = payload.get('footprint', '')
+    datasheet = payload.get('datasheet', '')
     base_url = payload.get('base_url')
-    schema_ver = payload.get('schema_version', '1.0')
 
-    # 2. Connect to the Brain (SQLite)
     os.makedirs('data', exist_ok=True)
     conn = sqlite3.connect('data/registry.db')
     cursor = conn.cursor()
     
-    # 3. Create a Professional, Semantic-Ready Schema
+    # 2. Updated Schema with Footprint and Datasheet
     cursor.execute('''CREATE TABLE IF NOT EXISTS registry (
                         name TEXT PRIMARY KEY, 
                         description TEXT, 
                         tags TEXT, 
+                        footprint TEXT,
+                        datasheet TEXT,
                         base_url TEXT, 
-                        schema_version TEXT,
-                        vector_embedding BLOB,  -- Reserved for Semantic Search
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )''')
 
-    # 4. Upsert (Insert or Update if exists)
-    cursor.execute('''INSERT INTO registry (name, description, tags, base_url, schema_version) 
-                      VALUES (?, ?, ?, ?, ?)
+    # 3. Enhanced Upsert
+    cursor.execute('''INSERT INTO registry (name, description, tags, footprint, datasheet, base_url) 
+                      VALUES (?, ?, ?, ?, ?, ?)
                       ON CONFLICT(name) DO UPDATE SET 
                         description=excluded.description, 
                         tags=excluded.tags, 
+                        footprint=excluded.footprint,
+                        datasheet=excluded.datasheet,
                         base_url=excluded.base_url, 
-                        schema_version=excluded.schema_version,
                         updated_at=CURRENT_TIMESTAMP''', 
-                   (name, description, tags, base_url, schema_ver))
+                   (name, description, tags, footprint, datasheet, base_url))
     
     conn.commit()
     conn.close()
-    print(f"Successfully indexed: {name}")
 
 if __name__ == "__main__":
     main()
