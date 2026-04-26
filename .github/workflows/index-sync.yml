@@ -25,14 +25,27 @@ jobs:
 
       - name: Auto-Commit Changes
         env:
-          # Use your secret token for the push
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }} 
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git config user.name "Vijayagandi"
           git config user.email "vijayagandi@users.noreply.github.com"
+          
+          # 1. Stage the changes first
           git add data/registry.db
-          # The trick: add the token to the remote URL
+          
+          # 2. Stash them temporarily so the pull is clean
+          git stash
+          
+          # 3. Set the remote with the token
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+          
+          # 4. Pull the latest code
           git pull --rebase origin main
-          git commit -m "sync: updated index for manual test" || echo "No changes to commit"
+          
+          # 5. Bring the database changes back
+          git stash pop || echo "No changes to pop"
+          
+          # 6. Commit and Push
+          git add data/registry.db
+          git commit -m "sync: updated index for part" || echo "No changes to commit"
           git push origin main
