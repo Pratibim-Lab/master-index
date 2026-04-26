@@ -3,6 +3,7 @@ name: Global Indexing Engine
 on:
   repository_dispatch:
     types: [shard_update]
+  workflow_dispatch: 
 
 jobs:
   update-index:
