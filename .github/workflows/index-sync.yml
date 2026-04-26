@@ -1,4 +1,5 @@
 name: Global Indexing Engine
+
 on:
   repository_dispatch:
     types: [shard_update]
@@ -14,23 +15,17 @@ jobs:
 
       - name: Update SQLite Database
         env:
-          # This prevents shell injection or quoting errors
           SHARD_PAYLOAD: ${{ toJson(github.event.client_payload) }}
         run: |
+          # Create data directory if it doesn't exist
+          mkdir -p data
           python3 .github/scripts/update_registry.py "$SHARD_PAYLOAD"
 
       - name: Auto-Commit Changes
         run: |
           git config user.name "Pratibim-System"
           git config user.email "bot@pratibim-lab.com"
-          
-          # Ensure data directory is tracked
           git add data/registry.db
-          
-          # Sync with any other simultaneous shard updates
           git pull --rebase origin main
-          
-          # Commit only if there's an actual change in the DB
           git commit -m "sync: updated index for ${{ github.event.client_payload.name }}" || echo "No changes to commit"
-          
           git push
